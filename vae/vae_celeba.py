@@ -1,13 +1,10 @@
 import torch
 import torch.nn as nn
-import numpy as np
 
 from vae.decoder import Decoder
 from vae.encoder import Encoder
 from vae.losses import recon, kl
 from vae.utils import reparameterize
-
-
 
 
 class VAE(nn.Module):
@@ -20,7 +17,6 @@ class VAE(nn.Module):
         self.encoder = Encoder(z_dim)
         self.decoder = Decoder(z_dim)
 
-
     def forward(self, x):
         """
 
@@ -28,25 +24,28 @@ class VAE(nn.Module):
         :return:
         """
 
-        B, C, H, W = x.shape
-        encoder_output = self.encoder(x).reshape(B, -1)  # (B, D_Z)
-        mu, log_var = self.statistic(encoder_output).chunk(2, dim=-1)
+        mu, log_var, xs = self.encoder(x)
 
         # (B, D_Z)
         z = reparameterize(mu, torch.exp(0.5 * log_var))
 
-        decoder_output = self.decoder(z)
+        decoder_output, losses = self.decoder(z, xs)
 
         recon_loss = recon(decoder_output, x)
         kl_loss = kl(mu, log_var)
+        kl_2_loss = 0.
+        mul = 2.
+        for ls in losses:
+            kl_2_loss += self.M_N * 1 / mul * ls
+            mul *= 2.
 
-        vae_loss = recon_loss + self.M_N * kl_loss
+        vae_loss = recon_loss + self.M_N * kl_loss + kl_2_loss
 
         return decoder_output, vae_loss
 
 
 if __name__ == '__main__':
-    vae = VAE(128, (64, 64))
+    vae = VAE(512, (64, 64))
     img = torch.rand(2, 3, 64, 64)
     img_recon, vae_loss = vae(img)
     print(img_recon.shape)

@@ -56,10 +56,20 @@ class Encoder(nn.Module):
             ResidualBlock(z_dim),
         ])
 
+        self.condition_x = nn.Sequential(
+            nn.AvgPool2d(kernel_size=2),
+            nn.Tanh(),
+            nn.Conv2d(z_dim, z_dim * 2, kernel_size=1)
+        )
+
     def forward(self, x):
         xs = []
+        last_x = x
         for e, r in zip(self.encoder_blocks, self.encoder_residual_blocks):
             x = r(e(x))
+            last_x = x
             xs.append(x)
 
-        return xs
+        mu, log_var = self.condition_x(last_x).squeeze(-1).squeeze(-1).chunk(2, dim=-1)
+
+        return mu, log_var, xs[:-1][::-1]
