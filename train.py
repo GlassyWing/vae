@@ -42,6 +42,7 @@ if __name__ == '__main__':
     train_dataloader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=opt.n_cpu)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=0.02)
 
     for epoch in range(epochs):
         model.train()

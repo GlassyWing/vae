@@ -6,6 +6,12 @@ from vae.losses import recon, kl
 from vae.utils import reparameterize
 
 
+class Swish(nn.Module):
+
+    def forward(self, x):
+        return x / (1 + torch.exp(-x))
+
+
 class ConvBlock(nn.Module):
 
     def __init__(self, in_channel, out_channel):
@@ -15,14 +21,14 @@ class ConvBlock(nn.Module):
         self.conv_3 = nn.Conv2d(out_channel // 2, out_channel, kernel_size=3, stride=2, padding=1)
 
         self.bn = nn.BatchNorm2d(out_channel)
-        self.leaky_relu = nn.LeakyReLU()
+        self.act = Swish()
 
     def forward(self, x):
         x = self.conv_1(x)
         x = self.conv_2(x)
         x = self.conv_3(x)
 
-        return self.leaky_relu(self.bn(x))
+        return self.act(self.bn(x))
 
 
 class Encoder(nn.Module):
@@ -54,13 +60,20 @@ class UpsampleBlock(nn.Module):
                                            padding=1,
                                            output_padding=1)
         self.bn = nn.BatchNorm2d(out_channel)
-        self.leaky_relu = nn.LeakyReLU()
+        self.act = Swish()
 
     def forward(self, x):
         x = self.upsample(x)
         # x = self.conv(x)
         x = self.bn(x)
-        return self.leaky_relu(x)
+        return self.act(x)
+
+
+def make_grid(h, w, device):
+    grid = torch.meshgrid([torch.linspace(-1, 1, steps=h),
+                           torch.linspace(-1, 1, steps=w)])
+    grid = torch.stack(grid, dim=-1).to(device)
+    return grid
 
 
 class Decoder(nn.Module):
@@ -70,6 +83,12 @@ class Decoder(nn.Module):
         self.map_size = map_size
         self.z_dim = z_dim
         self._dense = nn.Linear(z_dim, np.prod(map_size) * z_dim)
+
+        self._dense = nn.Sequential(
+            nn.Conv2d(z_dim + 2, z_dim, kernel_size=1),
+            Swish()
+        )
+
         self._seq = nn.Sequential(
             UpsampleBlock(z_dim, z_dim // 2),
             UpsampleBlock(z_dim // 2, z_dim // 4),
@@ -86,7 +105,13 @@ class Decoder(nn.Module):
         :return:
         """
 
-        z = self._dense(x).reshape(-1, self.z_dim, *self.map_size)
+        B, D = x.shape
+        grid = make_grid(*self.map_size, x.device).unsqueeze(0).expand(B, -1, -1, -1)
+        z = x.unsqueeze(1).repeat(1, np.prod(self.map_size), 1).reshape(B, *self.map_size, D)
+
+        z = torch.cat((grid, z), dim=-1).permute(0, 3, 1, 2)
+        z = self._dense(z)
+        # z = self._dense(x).reshape(-1, self.z_dim, *self.map_size)
         return torch.tanh(self._seq(z))
 
 
