@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 
-from vae.common import ResidualBlock
+from vae.common import ResidualBlock, Swish
 from vae.losses import kl_2
 from vae.utils import reparameterize
 
@@ -25,13 +25,13 @@ class UpsampleBlock(nn.Module):
                                            padding=1,
                                            output_padding=1)
         self.bn = nn.BatchNorm2d(out_channel)
-        self.leaky_relu = nn.LeakyReLU()
+        self.act = Swish()
 
     def forward(self, x):
         x = self.upsample(x)
         # x = self.conv(x)
         x = self.bn(x)
-        return self.leaky_relu(x)
+        return self.act(x)
 
 
 class DecoderBlock(nn.Module):

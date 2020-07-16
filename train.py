@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
-    model = VAE(z_dim=512, img_dim=(64, 64), M_N=0.003)
+    model = VAE(z_dim=512, img_dim=(64, 64), M_N=0.001)
     model.to(device)
 
     if opt.pretrained_weights:
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     train_ds = ImageFolderDataset(dataset_path, img_dim=64)
     train_dataloader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=opt.n_cpu)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=0.01)
 
     for epoch in range(epochs):
         model.train()
@@ -62,17 +62,18 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
 
+        torch.save(model.state_dict(),
+                   f"checkpoints/ae_ckpt_%d_%.6f.pth" % (epoch, loss.item()))
+
         model.eval()
 
         with torch.no_grad():
             z = torch.randn((1, 512)).to(device)
-            gen_img = model.decoder(z).permute(0, 2, 3, 1)
+            gen_img, _ = model.decoder(z)
+            gen_img = gen_img.permute(0, 2, 3, 1)
             gen_img = (gen_img[0].cpu().numpy() + 1) / 2 * 255
             gen_img = gen_img.astype(np.uint8)
 
             plt.imshow(gen_img)
             # plt.savefig(f"output/ae_ckpt_%d_%.6f.png" % (epoch, total_loss))
             plt.show()
-
-        torch.save(model.state_dict(),
-                   f"checkpoints/ae_ckpt_%d_%.6f.pth" % (epoch, loss.item()))

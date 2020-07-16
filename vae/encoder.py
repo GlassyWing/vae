@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from vae.common import ResidualBlock
+from vae.common import ResidualBlock, Swish
 
 
 class ConvBlock(nn.Module):
@@ -13,14 +13,14 @@ class ConvBlock(nn.Module):
         self.conv_3 = nn.Conv2d(out_channel // 2, out_channel, kernel_size=3, stride=2, padding=1)
 
         self.bn = nn.BatchNorm2d(out_channel)
-        self.leaky_relu = nn.LeakyReLU()
+        self.act = Swish()
 
     def forward(self, x):
         x = self.conv_1(x)
         x = self.conv_2(x)
         x = self.conv_3(x)
 
-        return self.leaky_relu(self.bn(x))
+        return self.act(self.bn(x))
 
 
 class EncoderBlock(nn.Module):
