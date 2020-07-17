@@ -68,9 +68,9 @@ if __name__ == '__main__':
     import numpy as np
     import time
 
-    ds = ImageFolderDataset("G:\data\GAN\CelebA\img_align_celeba", img_dim=64)
+    ds = ImageFolderDataset("E:\data\img_align_celeba", img_dim=64)
     start_time = time.time()
-    image = ds[0].permute(1, 2, 0)
+    image = ds[33].permute(1, 2, 0)
     print(time.time() - start_time)
     image = (image.numpy() + 1) / 2 * 255
     plt.imshow(image.astype(np.uint8))

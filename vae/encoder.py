@@ -1,26 +1,26 @@
 import torch
 import torch.nn as nn
 
-from vae.common import ResidualBlock, Swish
+from vae.common import EncoderResidualBlock, Swish
 
 
 class ConvBlock(nn.Module):
 
     def __init__(self, in_channel, out_channel):
         super().__init__()
-        self.conv_1 = nn.Conv2d(in_channel, out_channel, kernel_size=3, padding=1)
-        self.conv_2 = nn.Conv2d(out_channel, out_channel // 2, kernel_size=1)
-        self.conv_3 = nn.Conv2d(out_channel // 2, out_channel, kernel_size=3, stride=2, padding=1)
 
-        self.bn = nn.BatchNorm2d(out_channel)
-        self.act = Swish()
+        self._seq = nn.Sequential(
+
+            nn.Conv2d(in_channel, out_channel, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channel), Swish(),
+            nn.Conv2d(out_channel, out_channel // 2, kernel_size=1),
+            nn.Conv2d(out_channel // 2, out_channel, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(out_channel), Swish()
+        )
 
     def forward(self, x):
-        x = self.conv_1(x)
-        x = self.conv_2(x)
-        x = self.conv_3(x)
 
-        return self.act(self.bn(x))
+        return self._seq(x)
 
 
 class EncoderBlock(nn.Module):
@@ -45,15 +45,15 @@ class Encoder(nn.Module):
     def __init__(self, z_dim):
         super().__init__()
         self.encoder_blocks = nn.ModuleList([
-            EncoderBlock([3, z_dim // 16, z_dim // 8]), # (16, 16)
-            EncoderBlock([z_dim // 8, z_dim // 4, z_dim // 2]), # (4, 4)
+            EncoderBlock([3, z_dim // 16, z_dim // 8]),  # (16, 16)
+            EncoderBlock([z_dim // 8, z_dim // 4, z_dim // 2]),  # (4, 4)
             EncoderBlock([z_dim // 2, z_dim]),  # (2, 2)
         ])
 
         self.encoder_residual_blocks = nn.ModuleList([
-            ResidualBlock(z_dim // 8),
-            ResidualBlock(z_dim // 2),
-            ResidualBlock(z_dim),
+            EncoderResidualBlock(z_dim // 8),
+            EncoderResidualBlock(z_dim // 2),
+            EncoderResidualBlock(z_dim),
         ])
 
         self.condition_x = nn.Sequential(

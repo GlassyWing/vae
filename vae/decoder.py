@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 
-from vae.common import ResidualBlock, Swish
+from vae.common import EncoderResidualBlock, Swish, DecoderResidualBlock
 from vae.losses import kl_2
 from vae.utils import reparameterize
 
@@ -16,22 +16,20 @@ def create_grid(h, w, device):
 class UpsampleBlock(nn.Module):
     def __init__(self, in_channel, out_channel):
         super().__init__()
-        # self.upsample = nn.UpsamplingBilinear2d(scale_factor=2)
-        # self.conv = nn.Conv2d(in_channel, out_channel, kernel_size=3, padding=1)
-        self.upsample = nn.ConvTranspose2d(in_channel,
-                                           out_channel,
-                                           kernel_size=3,
-                                           stride=2,
-                                           padding=1,
-                                           output_padding=1)
-        self.bn = nn.BatchNorm2d(out_channel)
-        self.act = Swish()
+
+        self._seq = nn.Sequential(
+
+            nn.ConvTranspose2d(in_channel,
+                               out_channel,
+                               kernel_size=3,
+                               stride=2,
+                               padding=1,
+                               output_padding=1),
+            nn.BatchNorm2d(out_channel), Swish(),
+        )
 
     def forward(self, x):
-        x = self.upsample(x)
-        # x = self.conv(x)
-        x = self.bn(x)
-        return self.act(x)
+        return self._seq(x)
 
 
 class DecoderBlock(nn.Module):
@@ -60,26 +58,26 @@ class Decoder(nn.Module):
         self.decoder_blocks = nn.ModuleList([
             DecoderBlock([z_dim * 2, z_dim // 2]),  # 2x upsample
             DecoderBlock([z_dim, z_dim // 4, z_dim // 8]),  # 4x upsample
-            DecoderBlock([z_dim // 4, z_dim // 16, z_dim // 32])    # 4x uplsampe
+            DecoderBlock([z_dim // 4, z_dim // 16, z_dim // 32])  # 4x uplsampe
         ])
         self.decoder_residual_blocks = nn.ModuleList([
-            ResidualBlock(z_dim // 2),
-            ResidualBlock(z_dim // 8),
-            ResidualBlock(z_dim // 32)
+            DecoderResidualBlock(z_dim // 2, n_group=2),
+            DecoderResidualBlock(z_dim // 8, n_group=4),
+            DecoderResidualBlock(z_dim // 32, n_group=8)
         ])
 
         # p(z_l | z_(l-1))
         self.condition_z = nn.ModuleList([
             nn.Sequential(
-                ResidualBlock(z_dim // 2),
+                EncoderResidualBlock(z_dim // 2),
                 nn.AvgPool2d(kernel_size=4),
-                nn.Tanh(),
+                Swish(),
                 nn.Conv2d(z_dim // 2, z_dim, kernel_size=1)
             ),
             nn.Sequential(
-                ResidualBlock(z_dim // 8),
+                EncoderResidualBlock(z_dim // 8),
                 nn.AvgPool2d(kernel_size=16),
-                nn.Tanh(),
+                Swish(),
                 nn.Conv2d(z_dim // 8, z_dim // 4, kernel_size=1)
             )
         ])
@@ -87,17 +85,17 @@ class Decoder(nn.Module):
         # p(z_l | x, z_(l-1))
         self.condition_xz = nn.ModuleList([
             nn.Sequential(
-                ResidualBlock(z_dim),
+                EncoderResidualBlock(z_dim),
                 nn.Conv2d(z_dim, z_dim // 2, kernel_size=1),
                 nn.AvgPool2d(kernel_size=4),
-                nn.Tanh(),
+                Swish(),
                 nn.Conv2d(z_dim // 2, z_dim, kernel_size=1)
             ),
             nn.Sequential(
-                ResidualBlock(z_dim // 4),
+                EncoderResidualBlock(z_dim // 4),
                 nn.Conv2d(z_dim // 4, z_dim // 8, kernel_size=1),
                 nn.AvgPool2d(kernel_size=16),
-                nn.Tanh(),
+                Swish(),
                 nn.Conv2d(z_dim // 8, z_dim // 4, kernel_size=1)
             )
         ])
