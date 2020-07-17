@@ -9,6 +9,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from vae.dataset import ImageFolderDataset
+from vae.utils import add_sn
 from vae.vae_celeba import VAE
 
 if __name__ == '__main__':
@@ -32,7 +33,11 @@ if __name__ == '__main__':
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
-    model = VAE(z_dim=512, img_dim=(64, 64), M_N=0.001)
+    model = VAE(z_dim=512, img_dim=(64, 64), M_N=0.00064)
+
+    # apply Spectral Normalization
+    model.apply(add_sn)
+
     model.to(device)
 
     if opt.pretrained_weights:
@@ -41,7 +46,7 @@ if __name__ == '__main__':
     train_ds = ImageFolderDataset(dataset_path, img_dim=64)
     train_dataloader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=opt.n_cpu)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=0.01)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
     for epoch in range(epochs):
         model.train()
@@ -62,8 +67,7 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
 
-        torch.save(model.state_dict(),
-                   f"checkpoints/ae_ckpt_%d_%.6f.pth" % (epoch, loss.item()))
+        torch.save(model.state_dict(), f"checkpoints/ae_ckpt_%d_%.6f.pth" % (epoch, loss.item()))
 
         model.eval()
 

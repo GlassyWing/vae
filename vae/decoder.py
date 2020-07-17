@@ -54,10 +54,13 @@ class Decoder(nn.Module):
 
     def __init__(self, z_dim):
         super().__init__()
+
+        # Input channels = z_channels * 2 = x_channels + z_channels
+        # Output channels = z_channels
         self.decoder_blocks = nn.ModuleList([
-            DecoderBlock([z_dim, z_dim // 2]),
-            DecoderBlock([z_dim // 2, z_dim // 4, z_dim // 8]),
-            DecoderBlock([z_dim // 8, z_dim // 16, z_dim // 32])
+            DecoderBlock([z_dim * 2, z_dim // 2]),  # 2x upsample
+            DecoderBlock([z_dim, z_dim // 4, z_dim // 8]),  # 4x upsample
+            DecoderBlock([z_dim // 4, z_dim // 16, z_dim // 32])    # 4x uplsampe
         ])
         self.decoder_residual_blocks = nn.ModuleList([
             ResidualBlock(z_dim // 2),
@@ -126,12 +129,13 @@ class Decoder(nn.Module):
             z_rep = z.unsqueeze(1).repeat(1, map_h * map_w, 1).reshape(z.shape[0], map_h, map_w, z.shape[1])
 
             # (B, m_h, m_w, 2)
-            grid = create_grid(map_h, map_w, z.device).unsqueeze(0).expand(z.shape[0], -1, -1, -1)
+            grid = create_grid(map_h, map_w, z.device).unsqueeze(0).repeat(z.shape[0], 1, 1, 1)
 
             # (B, z_dim, m_h, m_w)
-            z_sample = self.map_from_z[i](torch.cat([z_rep, grid], dim=-1).permute(0, 3, 1, 2))
+            z_sample = self.map_from_z[i](torch.cat([z_rep, grid], dim=-1).permute(0, 3, 1, 2).contiguous())
 
-            decoder_out = self.decoder_residual_blocks[i](self.decoder_blocks[i](z_sample + decoder_out))
+            z_sample = torch.cat([decoder_out, z_sample], dim=1)
+            decoder_out = self.decoder_residual_blocks[i](self.decoder_blocks[i](z_sample))
 
             if i == len(self.map_from_z) - 1:
                 break
