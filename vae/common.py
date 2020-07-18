@@ -26,7 +26,7 @@ class Swish(nn.Module):
         super().__init__()
 
     def forward(self, x):
-        return x / (1 + torch.exp(-x))
+        return x * torch.sigmoid(x)
 
 
 class EncoderResidualBlock(nn.Module):
