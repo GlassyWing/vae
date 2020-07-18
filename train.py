@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Trainer for state AutoEncoder model.")
     parser.add_argument("--epochs", type=int, default=500, help="number of epochs.")
-    parser.add_argument("--batch_size", type=int, default=64, help="size of each sample batch")
+    parser.add_argument("--batch_size", type=int, default=128, help="size of each sample batch")
     parser.add_argument("--dataset_path", type=str, required=True, help="dataset path")
     parser.add_argument("--pretrained_weights", type=str, help="if specified starts from checkpoint model")
     parser.add_argument("--n_cpu", type=int, default=16, help="number of cpu threads to use during batch generation")
@@ -46,7 +46,9 @@ if __name__ == '__main__':
     train_ds = ImageFolderDataset(dataset_path, img_dim=64)
     train_dataloader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=opt.n_cpu)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    # optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adamax(model.parameters(), lr=0.0008)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
 
     for epoch in range(epochs):
         model.train()
@@ -66,6 +68,8 @@ if __name__ == '__main__':
 
             loss.backward()
             optimizer.step()
+            
+        scheduler.step(epoch)
 
         torch.save(model.state_dict(), f"checkpoints/ae_ckpt_%d_%.6f.pth" % (epoch, loss.item()))
 

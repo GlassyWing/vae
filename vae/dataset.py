@@ -1,11 +1,8 @@
 import os
-
-import h5py
-import matplotlib.pyplot as plt
 from glob import glob
 
 import cv2
-
+import h5py
 import torch
 from torch.utils.data import Dataset
 
@@ -62,16 +59,3 @@ class ImageFolderDataset(Dataset):
 
     def __len__(self):
         return len(self.img_paths)
-
-
-if __name__ == '__main__':
-    import numpy as np
-    import time
-
-    ds = ImageFolderDataset("E:\data\img_align_celeba", img_dim=64)
-    start_time = time.time()
-    image = ds[33].permute(1, 2, 0)
-    print(time.time() - start_time)
-    image = (image.numpy() + 1) / 2 * 255
-    plt.imshow(image.astype(np.uint8))
-    plt.show()

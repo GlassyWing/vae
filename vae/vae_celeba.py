@@ -33,13 +33,8 @@ class VAE(nn.Module):
 
         recon_loss = recon(decoder_output, x)
         kl_loss = kl(mu, log_var)
-        kl_2_loss = 0.
-        mul = 2.
-        for ls in losses:
-            kl_2_loss += self.M_N * 1 / mul * ls
-            mul *= 2.
 
-        vae_loss = recon_loss + self.M_N * kl_loss + kl_2_loss
+        vae_loss = recon_loss + self.M_N * (kl_loss + 1 / 2 * losses[0] + 1 / 8 * losses[1])
 
         return decoder_output, vae_loss
 

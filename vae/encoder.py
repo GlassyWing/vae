@@ -19,7 +19,6 @@ class ConvBlock(nn.Module):
         )
 
     def forward(self, x):
-
         return self._seq(x)
 
 
@@ -57,8 +56,8 @@ class Encoder(nn.Module):
         ])
 
         self.condition_x = nn.Sequential(
-            nn.AvgPool2d(kernel_size=2),
-            nn.Tanh(),
+            nn.AdaptiveAvgPool2d(1),
+            Swish(),
             nn.Conv2d(z_dim, z_dim * 2, kernel_size=1)
         )
 

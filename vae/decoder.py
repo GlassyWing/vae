@@ -61,22 +61,22 @@ class Decoder(nn.Module):
             DecoderBlock([z_dim // 4, z_dim // 16, z_dim // 32])  # 4x uplsampe
         ])
         self.decoder_residual_blocks = nn.ModuleList([
-            DecoderResidualBlock(z_dim // 2, n_group=2),
-            DecoderResidualBlock(z_dim // 8, n_group=4),
-            DecoderResidualBlock(z_dim // 32, n_group=8)
+            DecoderResidualBlock(z_dim // 2, n_group=1),
+            DecoderResidualBlock(z_dim // 8, n_group=2),
+            DecoderResidualBlock(z_dim // 32, n_group=4)
         ])
 
         # p(z_l | z_(l-1))
         self.condition_z = nn.ModuleList([
             nn.Sequential(
                 EncoderResidualBlock(z_dim // 2),
-                nn.AvgPool2d(kernel_size=4),
+                nn.AdaptiveAvgPool2d(1),
                 Swish(),
                 nn.Conv2d(z_dim // 2, z_dim, kernel_size=1)
             ),
             nn.Sequential(
                 EncoderResidualBlock(z_dim // 8),
-                nn.AvgPool2d(kernel_size=16),
+                nn.AdaptiveAvgPool2d(1),
                 Swish(),
                 nn.Conv2d(z_dim // 8, z_dim // 4, kernel_size=1)
             )
@@ -87,14 +87,14 @@ class Decoder(nn.Module):
             nn.Sequential(
                 EncoderResidualBlock(z_dim),
                 nn.Conv2d(z_dim, z_dim // 2, kernel_size=1),
-                nn.AvgPool2d(kernel_size=4),
+                nn.AdaptiveAvgPool2d(1),
                 Swish(),
                 nn.Conv2d(z_dim // 2, z_dim, kernel_size=1)
             ),
             nn.Sequential(
                 EncoderResidualBlock(z_dim // 4),
                 nn.Conv2d(z_dim // 4, z_dim // 8, kernel_size=1),
-                nn.AvgPool2d(kernel_size=16),
+                nn.AdaptiveAvgPool2d(1),
                 Swish(),
                 nn.Conv2d(z_dim // 8, z_dim // 4, kernel_size=1)
             )
@@ -107,6 +107,7 @@ class Decoder(nn.Module):
         ])
 
         self.recon = nn.Conv2d(z_dim // 32, 3, kernel_size=1)
+        self.pos_map = nn.Linear(2, 2)
 
     def forward(self, z, xs=None):
         """
@@ -128,6 +129,7 @@ class Decoder(nn.Module):
 
             # (B, m_h, m_w, 2)
             grid = create_grid(map_h, map_w, z.device).unsqueeze(0).repeat(z.shape[0], 1, 1, 1)
+            grid = self.pos_map(grid)
 
             # (B, z_dim, m_h, m_w)
             z_sample = self.map_from_z[i](torch.cat([z_rep, grid], dim=-1).permute(0, 3, 1, 2).contiguous())
@@ -144,6 +146,8 @@ class Decoder(nn.Module):
                 delta_mu, delta_log_var = self.condition_xz[i](torch.cat([xs[i], decoder_out], dim=1)) \
                     .squeeze(-1).squeeze(-1).chunk(2, dim=-1)
                 kl_losses.append(kl_2(delta_mu, delta_log_var, mu, log_var))
+                mu = mu + delta_mu
+                log_var = log_var + delta_log_var
 
             z = reparameterize(mu, torch.exp(0.5 * log_var))
             map_h *= 2 ** (len(self.decoder_blocks[i].channels) - 1)
