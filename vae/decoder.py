@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 
-from vae.common import EncoderResidualBlock, Swish, DecoderResidualBlock
+from vae.common import EncoderResidualBlock, Swish, DecoderResidualBlock, ResidualBlock
 from vae.losses import kl_2
 from vae.utils import reparameterize
 
@@ -69,13 +69,13 @@ class Decoder(nn.Module):
         # p(z_l | z_(l-1))
         self.condition_z = nn.ModuleList([
             nn.Sequential(
-                EncoderResidualBlock(z_dim // 2),
+                ResidualBlock(z_dim // 2),
                 nn.AdaptiveAvgPool2d(1),
                 Swish(),
                 nn.Conv2d(z_dim // 2, z_dim, kernel_size=1)
             ),
             nn.Sequential(
-                EncoderResidualBlock(z_dim // 8),
+                ResidualBlock(z_dim // 8),
                 nn.AdaptiveAvgPool2d(1),
                 Swish(),
                 nn.Conv2d(z_dim // 8, z_dim // 4, kernel_size=1)
@@ -85,14 +85,14 @@ class Decoder(nn.Module):
         # p(z_l | x, z_(l-1))
         self.condition_xz = nn.ModuleList([
             nn.Sequential(
-                EncoderResidualBlock(z_dim),
+                ResidualBlock(z_dim),
                 nn.Conv2d(z_dim, z_dim // 2, kernel_size=1),
                 nn.AdaptiveAvgPool2d(1),
                 Swish(),
                 nn.Conv2d(z_dim // 2, z_dim, kernel_size=1)
             ),
             nn.Sequential(
-                EncoderResidualBlock(z_dim // 4),
+                ResidualBlock(z_dim // 4),
                 nn.Conv2d(z_dim // 4, z_dim // 8, kernel_size=1),
                 nn.AdaptiveAvgPool2d(1),
                 Swish(),

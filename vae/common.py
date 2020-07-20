@@ -29,6 +29,21 @@ class Swish(nn.Module):
         return x * torch.sigmoid(x)
 
 
+class ResidualBlock(nn.Module):
+
+    def __init__(self, dim):
+        super().__init__()
+        self._seq = nn.Sequential(
+            nn.Conv2d(dim, dim, kernel_size=3, padding=1),
+            nn.Conv2d(dim, dim, kernel_size=1),
+            nn.BatchNorm2d(dim), Swish(),
+            nn.Conv2d(dim, dim, kernel_size=3, padding=1),
+            SELayer(dim))
+
+    def forward(self, x):
+        return x + self._seq(x)
+
+
 class EncoderResidualBlock(nn.Module):
 
     def __init__(self, dim):
@@ -37,10 +52,9 @@ class EncoderResidualBlock(nn.Module):
         self.seq = nn.Sequential(
 
             nn.Conv2d(dim, dim, kernel_size=3, padding=1),
-            nn.BatchNorm2d(dim), Swish(),
             nn.Conv2d(dim, dim, kernel_size=1),
-            nn.Conv2d(dim, dim, kernel_size=3, padding=1),
             nn.BatchNorm2d(dim), Swish(),
+            nn.Conv2d(dim, dim, kernel_size=3, padding=1),
             SELayer(dim))
 
     def forward(self, x):
@@ -58,6 +72,7 @@ class DecoderResidualBlock(nn.Module):
             nn.Conv2d(n_group * dim, n_group * dim, kernel_size=5, padding=2, groups=n_group),
             nn.BatchNorm2d(n_group * dim), Swish(),
             nn.Conv2d(n_group * dim, dim, kernel_size=1),
+            nn.BatchNorm2d(dim),
             SELayer(dim))
 
     def forward(self, x):

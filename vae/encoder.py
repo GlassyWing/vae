@@ -12,8 +12,8 @@ class ConvBlock(nn.Module):
         self._seq = nn.Sequential(
 
             nn.Conv2d(in_channel, out_channel, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channel), Swish(),
             nn.Conv2d(out_channel, out_channel // 2, kernel_size=1),
+            nn.BatchNorm2d(out_channel // 2), Swish(),
             nn.Conv2d(out_channel // 2, out_channel, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(out_channel), Swish()
         )
